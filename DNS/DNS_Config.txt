@@ -1,0 +1,91 @@
+
+Install and configure DNS
+
+1. Install rpm package
+yum install bind bind-utils
+
+
+2. Configure the /etc/named.conf file
+
+First, add or edit the two values in the options field. One is the DNS server address, and the other is the allow-query to any.
+
+vim /etc/named.conf
+listen-on port 53 { 127.0.0.1; <hostServerIP>; };
+allow-query { server; any; };
+
+Here are the values from the above file:
+server – DNS server address
+any – matches every IP address
+
+
+3. Define the forward and reverse zones
+
+vim /etc/named.rfc1912.zones
+  zone "pc.com" IN { type master;
+  file "pc.forward.zone";
+  allow-update { none; };
+};
+
+  zone "25.168.192.in-addr.arpa" IN { 
+   type master;
+   file "pc.reverse.zone";
+   allow-update { none; };
+};
+
+Note : Hostserver network part - 25.168.192
+
+4. Create forward zone files
+
+vim /var/named/pc.forward.zone
+$TTL 1D
+@       IN SOA  server.pc.com. root. (
+                                        01      ; serial
+                                        1D      ; refresh
+                                        1H      ; retry
+                                        1W      ; expire
+                                        3H )    ; minimum
+@        	IN		NS      server.pc.com.
+@        	IN		A       192.168.25.10
+server   	IN	    A	    192.168.25.10
+Node1		IN		A		192.168.25.20
+Node2		IN		A		192.168.25.30
+
+
+5. Create reverse zone files
+vim /var/named/pc.reverse.zone
+$TTL 1D
+@       IN SOA  server.pc.com. root. (
+                                        01      ; serial
+                                        1D      ; refresh
+                                        1H      ; retry
+                                        1W      ; expire
+                                        3H )    ; minimum
+@       IN		NS      server.pc.com.
+@       IN		PTR     pc.com.
+10   	IN	    PTR	    server.pc.com.
+20		IN		PTR		Node1.pc.com.
+30		IN		PTR		Node2.pc.com.
+
+
+
+6. Change file permission
+chown root:named pc.forward.zone
+chown root:named pc.reverse.zone
+
+
+7. Validate configuration
+named-checkconf -z /etc/named.conf
+named-checkconf forward /var/named/pc.forward.zone
+named-checkconf reverse /var/named/pc.reverse.zone
+
+8. Restart service
+systemctl restart named
+
+
+9. Add dns entry to client server resolve conf file.
+vi /etc/resolve.conf
+search pc.com
+nameserver 192.168.25.10
+
+10. Take restart of network service at client machine
+systemctl restart NetworkManager
